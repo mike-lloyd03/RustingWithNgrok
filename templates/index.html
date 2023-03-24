@@ -1,0 +1,170 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Chat with ngrok</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        background-color: #f9f9f9;
+        font-family: Arial, sans-serif;
+      }
+      .header {
+        background-color: #f74b00;
+        color: #fff;
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-align: center;
+        padding: 0.5rem;
+      }
+      .input-group {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        background-color: #f6f6f6;
+        border-top: 1px solid #d6d6d6;
+        position: sticky;
+        bottom: 0;
+      }
+      #messageText {
+        width: calc(100% - 3rem);
+        padding: 0.5rem;
+        margin-right: 1rem;
+        font-size: 1.25rem;
+        border: 1px solid #ddd;
+        border-radius: 0.25rem;
+        background-color: #fff;
+      }
+
+      #messages {
+        height: 70vh;
+        overflow: auto;
+        padding: 0.5rem;
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 0.25rem;
+        background-color: #fff;
+        border: 1px solid #ddd;
+      }
+      .message {
+        margin: 1rem 0;
+      }
+      .name {
+        font-weight: bold;
+      }
+      #emojiPicker {
+        position: absolute;
+        bottom: 65px;
+        right: 10px;
+        background-color: #f6f6f6;
+        box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+        border-radius: 5px;
+        display: none;
+      }
+      .emoji-button {
+        width: 70px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        background-color: #f74b00;
+        cursor: pointer;
+        border-radius: 10px;
+        border-color: #952300;
+      }
+
+      .submit-button {
+        width: 151px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        background-color: #f74b00;
+        margin-left: 15px;
+        color: #fff;
+        border-radius: 10px;
+        border-color: #952300;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="header">chat with ngrok</div>
+    <div id="messages">
+      {% for message in chat_messages %}
+      <div class="message">
+        <span class="name"><b>{{ message.username }}</b>:</span>
+        <span class="text">{{ message.text }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <form onsubmit="sendMessage(event)">
+      <div class="input-group">
+        <input
+          type="text"
+          id="messageText"
+          autocomplete="off"
+          placeholder="Type a message..."
+        />
+        <div class="emoji-button" onclick="toggleEmojiPicker()">
+          <button type="button" class="emoji-button" id="emojiButton">
+            &#x1F980;
+          </button>
+        </div>
+        <emoji-picker
+          for="messageText"
+          id="emojiPicker"
+          style="display: none"
+        ></emoji-picker>
+        <button class="submit-button" type="submit">Send</button>
+      </div>
+    </form>
+    <script>
+      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = wsProtocol + "//" + window.location.host + "/ws";
+      const socket = new WebSocket(wsUrl);
+      socket.onmessage = (event) => {
+        const messagesDiv = document.getElementById("messages");
+        const message = document.createElement("div");
+        message.classList.add("message");
+        const nameSpan = document.createElement("span");
+        nameSpan.classList.add("name");
+        nameSpan.innerHTML = "<b>" + event.data.split(":")[0] + ": </b> ";
+        const textSpan = document.createElement("span");
+        textSpan.classList.add("text");
+        textSpan.innerText = event.data.split(":")[1];
+        message.appendChild(nameSpan);
+        message.appendChild(textSpan);
+        messagesDiv.appendChild(message);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      };
+      function sendMessage(event) {
+        event.preventDefault();
+        const messageInput = document.getElementById("messageText");
+        const message = messageInput.value;
+        messageInput.value = "";
+        socket.send(message);
+      }
+      function toggleEmojiPicker() {
+        const picker = document.getElementById("emojiPicker");
+        picker.style.display =
+          picker.style.display === "none" ? "block" : "none";
+      }
+      const picker = document.querySelector("emoji-picker");
+      picker.addEventListener("emoji-click", (event) => {
+        const messageInput = document.getElementById("messageText");
+        messageInput.value += event.detail.unicode;
+        messageInput.focus();
+      });
+    </script>
+    <script
+      type="module"
+      src="https://cdn.skypack.dev/emoji-picker-element?min"
+    ></script>
+  </body>
+</html>
