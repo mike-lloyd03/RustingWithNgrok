@@ -50,6 +50,9 @@ impl Handler<ChatMsg> for Server {
     fn handle(&mut self, msg: ChatMsg, _ctx: &mut Self::Context) {
         let mut chat_messages = self.chat_messages.lock().unwrap();
         chat_messages.push(msg.clone());
+        chat_messages.reverse();
+        chat_messages.truncate(100);
+        chat_messages.reverse();
 
         for client in self.clients.values() {
             client.do_send(msg.clone())
