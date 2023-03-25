@@ -1,68 +1,43 @@
-use std::sync::{Arc, Mutex};
+use axum::{routing::get, Router};
+use ngrok::{config::OauthOptions, prelude::*};
+use rustingwithngrok::AppState;
+use std::{env, net::SocketAddr, process::exit, sync::Arc};
 
-use actix::{Actor, Addr};
-use actix_web::{get, web, App, Error, HttpRequest, HttpResponse, HttpServer};
-use actix_web_actors::ws;
-use askama::Template;
-use askama_actix::TemplateToResponse;
+mod routes;
 
-mod client;
-mod messages;
-mod server;
-use client::*;
-use messages::*;
-use server::*;
-
-#[derive(Template)]
-#[template(path = "./index.html")]
-struct IndexTemplate {
-    chat_messages: Vec<ChatMsg>,
-}
-
-#[get("/ws")]
-async fn websocket_endpoint(
-    req: HttpRequest,
-    stream: web::Payload,
-    server: web::Data<Addr<Server>>,
-) -> Result<HttpResponse, Error> {
-    let username = match req.headers().get("ngrok-auth-user-name") {
-        Some(header) => header.to_str().unwrap_or("None").to_string(),
-        None => "None".to_string(),
-    };
-
-    ws::start(
-        Client {
-            id: rand::random(),
-            username,
-            addr: server.get_ref().clone(),
-        },
-        &req,
-        stream,
-    )
-}
-
-#[get("/")]
-async fn index(chat_messages: web::Data<Arc<Mutex<Vec<ChatMsg>>>>) -> Result<HttpResponse, Error> {
-    let chat_messages = chat_messages.into_inner();
-    let chat_messages = chat_messages.lock().unwrap().to_vec();
-    Ok(IndexTemplate { chat_messages }.to_response())
-}
-
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-    let chat_messages = Arc::new(Mutex::new(Vec::<ChatMsg>::new()));
-    let server = Server::new(chat_messages.clone()).start();
+    let app_state = Arc::new(AppState::new());
 
-    HttpServer::new(move || {
-        App::new()
-            .app_data(web::Data::new(chat_messages.clone()))
-            .app_data(web::Data::new(server.clone()))
-            .service(index)
-            .service(websocket_endpoint)
-    })
-    .bind(("0.0.0.0", 8000))?
-    .run()
-    .await
+    let app = Router::new()
+        .route("/", get(routes::index))
+        .route("/ws", get(routes::websocket))
+        .with_state(app_state);
+
+    let ngrok_token = match env::var("NGROK_AUTHTOKEN") {
+        Ok(t) => t,
+        Err(_) => {
+            eprintln!("NGROK_AUTHTOKEN environment variable must be set");
+            exit(1)
+        }
+    };
+
+    let tunnel = ngrok::Session::builder()
+        .authtoken(ngrok_token)
+        .connect()
+        .await?
+        .http_endpoint()
+        .oauth(OauthOptions::new("google"))
+        .listen()
+        .await?;
+
+    log::info!("Tunnel started on URL: {:?}", tunnel.url());
+
+    axum::Server::builder(tunnel)
+        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+        .await?;
+
+    Ok(())
 }
