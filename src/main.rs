@@ -16,6 +16,7 @@ async fn main() -> anyhow::Result<()> {
         .with_state(app_state);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
+    log::info!("App started on URL: {:?}", addr.to_string());
 
     axum::Server::bind(&addr)
         .serve(app.into_make_service_with_connect_info::<SocketAddr>())
