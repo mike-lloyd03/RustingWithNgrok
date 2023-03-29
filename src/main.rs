@@ -1,7 +1,6 @@
 use axum::{routing::get, Router};
-use ngrok::{config::OauthOptions, prelude::*};
 use rustingwithngrok::AppState;
-use std::{env, net::SocketAddr, process::exit, sync::Arc};
+use std::{net::SocketAddr, sync::Arc};
 
 mod routes;
 
@@ -16,26 +15,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/ws", get(routes::websocket))
         .with_state(app_state);
 
-    let ngrok_token = match env::var("NGROK_AUTHTOKEN") {
-        Ok(t) => t,
-        Err(_) => {
-            eprintln!("NGROK_AUTHTOKEN environment variable must be set");
-            exit(1)
-        }
-    };
+    let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
 
-    let tunnel = ngrok::Session::builder()
-        .authtoken(ngrok_token)
-        .connect()
-        .await?
-        .http_endpoint()
-        .oauth(OauthOptions::new("google"))
-        .listen()
-        .await?;
-
-    log::info!("Tunnel started on URL: {:?}", tunnel.url());
-
-    axum::Server::builder(tunnel)
+    axum::Server::bind(&addr)
         .serve(app.into_make_service_with_connect_info::<SocketAddr>())
         .await?;
 

@@ -12,5 +12,4 @@ axum = { version = "0.6.12", features = ["ws", "headers"] }
 env_logger = "0.10.0"
 futures = "0.3.27"
 log = "0.4.17"
-ngrok = { version = "0.11.0", features = ["axum"] }
 tokio = { version = "1.26.0", features = ["full"] }
