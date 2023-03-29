@@ -1,10 +1,7 @@
 use askama_axum::IntoResponse;
-use axum::{
-    extract::{
-        ws::{self, Message},
-        State, WebSocketUpgrade,
-    },
-    http::HeaderMap,
+use axum::extract::{
+    ws::{self, Message},
+    State, WebSocketUpgrade,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
 use std::sync::Arc;
@@ -23,12 +20,8 @@ pub async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 pub async fn websocket(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
 ) -> impl IntoResponse {
-    let username = match headers.get("ngrok-auth-user-name") {
-        Some(header) => header.to_str().unwrap_or("None").to_string(),
-        None => "None".to_string(),
-    };
+    let username = "None".to_string();
     ws.on_upgrade(|socket| chat_service(socket, state, username))
 }
 
